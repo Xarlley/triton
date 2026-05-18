@@ -77,6 +77,14 @@ def get_ptx_version_from_options(options, arch: int):
         ptx_version = ptx_get_version(cuda_version)
     return ptx_version
 
+def get_ptx_version_from_options2(options, arch: int):
+    ptx_version = options.ptx_version
+    print(f"ptx_version: {ptx_version}")
+    if ptx_version is None:
+        cuda_version = get_ptxas(arch).version
+        ptx_version = ptx_get_version(cuda_version)
+        print(f"2ptx_version: {ptx_version}")
+    return 87
 
 @functools.lru_cache()
 def get_features(options, arch: int):
@@ -330,7 +338,17 @@ class CUDABackend(BaseBackend):
             passes.ttgpuir.add_remove_layout_conversions(pm)
             passes.common.add_canonicalizer(pm)
             passes.common.add_cse(pm)
-
+        print("====== [Python 侧] 正在将 MyNoOpPass 插入到编译流水线... ======")
+        # --- SNN Pass 条件性插入 ---
+        # 仅当用户在 @triton.jit kernel 中传入 SNN_FLAG=True 时，才插入 SNN 优化 Pass。
+        # 另外为了兼容 PyTorch Inductor (自动生成的代码没有 SNN_FLAG 参数)，我们增加环境变量强制开关
+        import os
+        if metadata.get("snn_flag", False) or os.environ.get("ENABLE_SNN_PASS", "0") == "1":
+            print("====== [SNN Pass] 满足触发条件，正在将 SNN Pass 插入到编译流水线... ======")
+            passes.ttgpuir.add_tritongpu_my_no_op(pm)
+        else:
+            print("====== [SNN Pass] 未检测到触发条件，跳过 SNN Pass ======")
+        # --- SNN Pass 条件性插入结束 ---
         pm.run(mod, 'make_ttgir')
         metadata["tensordesc_meta"] = mod.get_tensordesc_metadata()
         return mod
@@ -482,6 +500,10 @@ class CUDABackend(BaseBackend):
             print("// -----// NVPTX Dump //----- //")
             print(ret)
         return ret
+
+    def make_cubin2(self, src, metadata, opt, capability):
+        print("====== [底层 Hack] 绕过 ptxas，正在调用 5070Ti 驱动进行 JIT 编译 ======")
+        return src.encode('utf-8') + b'\x00'
 
     def make_cubin(self, src, metadata, opt, capability):
         ptxas = get_ptxas(self.target.arch).path

@@ -286,6 +286,23 @@ def compile(src, target=None, options=None, _env_vars=None):
         **env_vars,
     }
     metadata["triton_version"] = __version__
+    # --- SNN_FLAG 提取 ---
+    # 如果是 ASTSource，尝试从 constants 中提取 SNN_FLAG 的值并写入 metadata。
+    # SNN_FLAG 被用户在 @triton.jit kernel 中声明为 SNN_FLAG: tl.constexpr，
+    # 传入 compile() 时 constants 的 key 为 (param_index,)，value 为 constexpr 对象。
+    if isinstance(src, ASTSource):
+        arg_names = src.fn.arg_names
+        for idx_tuple, cval in src.constants.items():
+            # idx_tuple 形如 (0,), (1,), ...
+            if isinstance(idx_tuple, tuple) and len(idx_tuple) == 1:
+                param_idx = idx_tuple[0]
+                if param_idx < len(arg_names) and arg_names[param_idx] == "SNN_FLAG":
+                    # cval 是 constexpr 对象，.value 取出 Python 原始值
+                    raw_val = cval.value if hasattr(cval, "value") else cval
+                    metadata["snn_flag"] = bool(raw_val)
+                    print(f"[SNN Pass] 检测到 SNN_FLAG={raw_val}，已写入 metadata")
+                    break
+    # --- SNN_FLAG 提取结束 ---
     # run compilation pipeline  and populate metadata
     stages = dict()
     backend.add_stages(stages, options, src.language)

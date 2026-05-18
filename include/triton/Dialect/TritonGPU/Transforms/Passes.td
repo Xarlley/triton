@@ -340,4 +340,9 @@ def TritonGPUCoalesceAsyncCopy: Pass<"tritongpu-coalesce-async-copy", "mlir::Mod
                            "mlir::triton::TritonDialect"];
 }
 
+def TritonGPUMyNoOp : Pass<"tritongpu-my-no-op", "mlir::ModuleOp"> {
+  let summary = "My first no-op pass for learning";
+  let description = "A minimal no-op pass used for learning Triton Pass development.";
+}
+
 #endif
