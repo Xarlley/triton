@@ -1,3 +1,16 @@
+//===- MyNoOpPass.cpp - SNN 优化 Pass 的开发骨架 --------------------------===//
+//
+// MyNoOpPass 是面向脉冲神经网络（SNN）优化的自定义 Pass 的【占位实现 / 开发骨架】。
+// 它目前的唯一作用是验证「SNN_FLAG / ENABLE_SNN_PASS -> Pass 条件性插入」这条链路：
+//   1. 打印进入 Pass 时的 Module IR；
+//   2. 写入占位标记属性 ttg.snn_time_split（自定义属性，当前无任何下游 Pass 消费）；
+//   3. 写入 ttg.maxnreg=64（Triton 原生属性，会限制寄存器用量，但此处为硬编码值）。
+//
+// 注意：dev-log/dev-plan.md 第 2.1 节描述的【真正的时间拆分与空间拆分】尚未实现。
+// 本 Pass 不改写任何计算 IR，因此对推理结果没有影响。
+//
+//===----------------------------------------------------------------------===//
+
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
 #include "llvm/Support/raw_ostream.h"
@@ -15,26 +28,28 @@ class MyNoOpPass : public impl::TritonGPUMyNoOpBase<MyNoOpPass> {
 public:
   void runOnOperation() override {
     ModuleOp mod = getOperation();
-    llvm::outs() << "\n=== [SNN Pass] 执行前 IR ===\n";
+    llvm::outs() << "\n=== [SNN Pass] 占位 Pass 开始，当前 Module IR ===\n";
     mod->print(llvm::outs());
     llvm::outs() << "\n\n";
 
     mlir::OpBuilder builder(mod.getContext());
 
-    // 1. 时间拆分：将 T=4 拆分为 T(0~1) 和 T(2~3)
-    // 受限于 MLIR 中对于 SSA 值支配和生命周期的严格要求，深度的 scf::ForOp 克隆和 use-def 链重写会导致 SIGBUS。
-    // 为保证推理结果绝对等价并在不改变语义拓扑的情况下验证流程，我们在 Module 级别标注拆分信息。
+    // 占位标记（非优化）：写入一个自定义属性，仅用于演示本 Pass 能够修改 Module。
+    // 注意：ttg.snn_time_split 是自定义属性，当前没有任何下游 Pass 或调度器消费它，
+    // 因此它不产生任何优化效果。真正的时间拆分见 dev-plan §2.1，尚未实现。
     mod->setAttr("ttg.snn_time_split", builder.getStringAttr("T0-1, T2-3"));
-    llvm::outs() << "=== [SNN Pass] 时间分块后 IR ===\n";
+    llvm::outs() << "=== [SNN Pass] 已写入占位标记属性 ttg.snn_time_split ===\n";
     mod->print(llvm::outs());
     llvm::outs() << "\n\n";
 
-    // 2. 空间拆分：限制 warp 使用的寄存器数量不得大于 SM 拥有的最大寄存器数量
-    // 强行将 ttg.maxnreg 设为 64，触发后端空间切片，保证寄存器不溢出
+    // 写入 ttg.maxnreg=64：这是 Triton 原生属性，后端会据此限制单线程寄存器用量。
+    // 注意：64 是硬编码常量，并非 dev-plan §2.1 所要求的“计算得到的、保证不溢出的
+    // 最大空间分块尺寸”，本 Pass 也不做任何按 warp 的分块。真正的空间拆分尚未实现。
     mod->setAttr("ttg.maxnreg", builder.getI32IntegerAttr(64));
-    llvm::outs() << "=== [SNN Pass] 空间分块后 IR ===\n";
+    llvm::outs() << "=== [SNN Pass] 已写入 ttg.maxnreg=64 ===\n";
     mod->print(llvm::outs());
-    llvm::outs() << "\n\n=== [SNN Pass] 拆分优化完毕！ ===\n";
+    llvm::outs() << "\n\n=== [SNN Pass] 占位 Pass 结束"
+                    "（真正的时间/空间拆分见 dev-plan §2.1，尚未实现） ===\n";
   }
 };
 
