@@ -338,7 +338,6 @@ class CUDABackend(BaseBackend):
             passes.ttgpuir.add_remove_layout_conversions(pm)
             passes.common.add_canonicalizer(pm)
             passes.common.add_cse(pm)
-        print("====== [Python 侧] 正在将 MyNoOpPass 插入到编译流水线... ======")
         # --- SNN Pass 条件性插入 ---
         # 仅当用户在 @triton.jit kernel 中传入 SNN_FLAG=True 时，才插入 SNN 优化 Pass。
         # 另外为了兼容 PyTorch Inductor (自动生成的代码没有 SNN_FLAG 参数)，我们增加环境变量强制开关

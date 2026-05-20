@@ -1,14 +1,8 @@
+#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
 #include "llvm/Support/raw_ostream.h"
-#include <memory>
 
 #define DEBUG_TYPE "triton-gpu-my-no-op"
-
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/IRMapping.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-
-// ... existing headers ...
 
 namespace mlir {
 namespace triton {
@@ -19,8 +13,6 @@ namespace gpu {
 
 class MyNoOpPass : public impl::TritonGPUMyNoOpBase<MyNoOpPass> {
 public:
-  MyNoOpPass() = default;
-
   void runOnOperation() override {
     ModuleOp mod = getOperation();
     llvm::outs() << "\n=== [SNN Pass] 执行前 IR ===\n";
@@ -45,10 +37,6 @@ public:
     llvm::outs() << "\n\n=== [SNN Pass] 拆分优化完毕！ ===\n";
   }
 };
-
-std::unique_ptr<Pass> createMyNoOpPass() {
-  return std::make_unique<MyNoOpPass>();
-}
 
 } // namespace gpu
 } // namespace triton
